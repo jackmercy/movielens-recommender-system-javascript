@@ -76,10 +76,10 @@ export function gradientDescent(X, y, theta, ALPHA, ITERATIONS) {
 
     if (i % 50 === 0) {
       const cost = computeCost(X, y, theta);
-      console.log(`Cost after ${i} of trained ${ITERATIONS}: ${cost}`);
+      // console.log(`Cost after ${i} of trained ${ITERATIONS}: ${cost}`);
     }
   }
-  console.log(`\n`);
+  // console.log(`\n`);
 
   return theta;
 }

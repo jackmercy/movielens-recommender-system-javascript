@@ -9,22 +9,23 @@ function prepareMovies(moviesMetaData, moviesKeywords) {
   // E.g. get overview property into same shape as studio property
   console.log('(1) Zipping Movies');
   let MOVIES_IN_LIST = zip(moviesMetaData, moviesKeywords);
+  
   MOVIES_IN_LIST = withTokenizedAndStemmed(MOVIES_IN_LIST, 'overview');
   MOVIES_IN_LIST = fromArrayToMap(MOVIES_IN_LIST, 'overview');
-
+  
   // Keep a map of movies for later reference
   let MOVIES_BY_ID = MOVIES_IN_LIST.reduce(byId, {});
 
   console.log('(2) Creating Dictionaries');
   // Preparing dictionaries for feature extraction
   let DICTIONARIES = prepareDictionaries(MOVIES_IN_LIST);
-
+  
   // Feature Extraction:
   // Map different types to numerical values (e.g. adult to 0 or 1)
   // Map dictionaries to partial feature vectors
   console.log('(3) Extracting Features');
   let X = MOVIES_IN_LIST.map(toFeaturizedMovies(DICTIONARIES));
-
+  
   // Extract a couple of valuable coefficients
   // Can be used in a later stage (e.g. feature scaling)
   console.log('(4) Calculating Coefficients');
@@ -40,7 +41,7 @@ function prepareMovies(moviesMetaData, moviesKeywords) {
   // Normalize features based on mean and range vectors
   console.log('(6) Scaling Features \n');
   X = scaleFeatures(X, means, ranges);
-
+  
   return {
     MOVIES_BY_ID,
     MOVIES_IN_LIST,

@@ -2,10 +2,16 @@
 // Exercise: Content-based - Include credits data with crew and cast too
 // Exercise: Content-based - Make features weighted based on popularity or actors
 // Exercise: Collaborative Filtering - Model-based CF with SVD
-
+import express from 'express';
+import path from 'path';
+import bodyParser from 'body-parser';
+import compress from 'compression';
+import appRoot from 'app-root-path';
+import morgan from 'morgan';
 import fs from 'fs';
 import csv from 'fast-csv';
 
+import router from './routes/index.route';
 import prepareRatings from './preparation/ratings';
 import prepareMovies from './preparation/movies';
 import predictWithLinearRegression from './strategies/linearRegression';
@@ -21,21 +27,21 @@ let ME_USER_ID = 0;
 
 let moviesMetaDataPromise = new Promise((resolve) =>
   fs
-    .createReadStream('./src/data/movies_metadata.csv')
+    .createReadStream('./data/movies_metadata.csv')
     .pipe(csv({ headers: true }))
     .on('data', fromMetaDataFile)
     .on('end', () => resolve(MOVIES_META_DATA)));
 
 let moviesKeywordsPromise = new Promise((resolve) =>
   fs
-    .createReadStream('./src/data/keywords.csv')
+    .createReadStream('./data/keywords.csv')
     .pipe(csv({ headers: true }))
     .on('data', fromKeywordsFile)
     .on('end', () => resolve(MOVIES_KEYWORDS)));
 
 let ratingsPromise = new Promise((resolve) =>
   fs
-    .createReadStream('./src/data/ratings_small.csv')
+    .createReadStream('./data/ratings_small.csv')
     .pipe(csv({ headers: true }))
     .on('data', fromRatingsFile)
     .on('end', () => resolve(RATINGS)));
@@ -89,14 +95,18 @@ function init([ moviesMetaData, moviesKeywords, ratings ]) {
     X,
   } = prepareMovies(moviesMetaData, moviesKeywords);
 
+  global.movies_by_id = MOVIES_BY_ID;
+  global.movies_in_list = MOVIES_IN_LIST;
+  global.matrix = X;
+
   let ME_USER_RATINGS = [
-    addUserRating(ME_USER_ID, 'Terminator 3: Rise of the Machines', '5.0', MOVIES_IN_LIST),
-    addUserRating(ME_USER_ID, 'Jarhead', '4.0', MOVIES_IN_LIST),
+    addUserRating(ME_USER_ID, 'Doctor Strange', '5.0', MOVIES_IN_LIST),
+    addUserRating(ME_USER_ID, 'Thor', '4.0', MOVIES_IN_LIST),
     addUserRating(ME_USER_ID, 'Back to the Future Part II', '3.0', MOVIES_IN_LIST),
     addUserRating(ME_USER_ID, 'Jurassic Park', '4.0', MOVIES_IN_LIST),
-    addUserRating(ME_USER_ID, 'Reservoir Dogs', '3.0', MOVIES_IN_LIST),
+    addUserRating(ME_USER_ID, 'Reservoir Dogs', '1.0', MOVIES_IN_LIST),
     addUserRating(ME_USER_ID, 'Men in Black II', '3.0', MOVIES_IN_LIST),
-    addUserRating(ME_USER_ID, 'Bad Boys II', '5.0', MOVIES_IN_LIST),
+    addUserRating(ME_USER_ID, 'Captain America: The First Avenger', '5.0', MOVIES_IN_LIST),
     addUserRating(ME_USER_ID, 'Sissi', '1.0', MOVIES_IN_LIST),
     addUserRating(ME_USER_ID, 'Titanic', '1.0', MOVIES_IN_LIST),
   ];
@@ -106,27 +116,71 @@ function init([ moviesMetaData, moviesKeywords, ratings ]) {
     ratingsGroupedByMovie,
   } = prepareRatings([ ...ME_USER_RATINGS, ...ratings ]);
 
+  global._ratingsGroupedByUser = ratingsGroupedByUser;
+  global._ratingsGroupedByMovie = ratingsGroupedByUser;
+
+/* Init variable */
+var app = express();
+var port = process.env.port || 5050;
+/* Init variable */
+
+/* Utility package */
+// app.use(logger('dev'));
+app.use(morgan('dev'));
+app.use(bodyParser.urlencoded({ extended: true } ));
+app.use(bodyParser.json());
+app.use(compress());
+/* Utility package */
+
+/* Routes */
+app.use('/api', router);
+/* Routes */
+
+/* dev */
+// catch 404 and forward to error handler
+app.use(function(req, res, next) {
+  var err = new Error('Not Found');
+  err.status = 404;
+  next(err);
+});
+
+// error handler
+app.use(function(err, req, res, next) {
+  // set locals, only providing error in development
+  res.locals.message = err.message;
+  res.locals.error = req.app.get('env') === 'development' ? err : {};
+
+  // render the error page
+  res.status(err.status || 500);
+  res.render('error');
+});
+// start server on port 5050
+app.listen(port, function() {
+    console.log('server is running on:' + port);
+});
+
   /* ----------------------------- */
   //  Linear Regression Prediction //
   //        Gradient Descent       //
   /* ----------------------------- */
 
-  console.log('\n');
+  /* console.log('\n');
   console.log('(A) Linear Regression Prediction ... \n');
 
   console.log('(1) Training \n');
-  const meUserRatings = ratingsGroupedByUser[ME_USER_ID];
-  const linearRegressionBasedRecommendation = predictWithLinearRegression(X, MOVIES_IN_LIST, meUserRatings);
+  const meUserRatings = _ratingsGroupedByUser[ME_USER_ID];
+  console.log(meUserRatings);
+  const linearRegressionBasedRecommendation = predictWithLinearRegression(matrix, movies_in_list, meUserRatings);
 
   console.log('(2) Prediction \n');
-  console.log(sliceAndDice(linearRegressionBasedRecommendation, MOVIES_BY_ID, 10, true));
+  console.log(sliceAndDice(linearRegressionBasedRecommendation, movies_by_id, 10, true)); */
 
   /* ------------------------- */
   //  Content-Based Prediction //
   //  Cosine Similarity Matrix //
   /* ------------------------- */
 
-  console.log('\n');
+/*   console.log('\n');
   console.log('(B) Content-Based Prediction ... \n');
 
   console.log('(1) Computing Cosine Similarity \n');
@@ -134,14 +188,14 @@ function init([ moviesMetaData, moviesKeywords, ratings ]) {
   const contentBasedRecommendation = predictWithContentBased(X, MOVIES_IN_LIST, title);
 
   console.log(`(2) Prediction based on "${title}" \n`);
-  console.log(sliceAndDice(contentBasedRecommendation, MOVIES_BY_ID, 10, true));
+  console.log(sliceAndDice(contentBasedRecommendation, MOVIES_BY_ID, 10, true)); */
 
   /* ----------------------------------- */
   //  Collaborative-Filtering Prediction //
   //             User-Based              //
   /* ----------------------------------- */
 
-  console.log('\n');
+  /* console.log('\n');
   console.log('(C) Collaborative-Filtering (User-Based) Prediction ... \n');
 
   console.log('(1) Computing User-Based Cosine Similarity \n');
@@ -153,14 +207,14 @@ function init([ moviesMetaData, moviesKeywords, ratings ]) {
   );
 
   console.log('(2) Prediction \n');
-  console.log(sliceAndDice(cfUserBasedRecommendation, MOVIES_BY_ID, 10, true));
+  console.log(sliceAndDice(cfUserBasedRecommendation, MOVIES_BY_ID, 10, true)); */
 
   /* ----------------------------------- */
   //  Collaborative-Filtering Prediction //
   //             Item-Based              //
   /* ----------------------------------- */
 
-  console.log('\n');
+  /* console.log('\n');
   console.log('(C) Collaborative-Filtering (Item-Based) Prediction ... \n');
 
   console.log('(1) Computing Item-Based Cosine Similarity \n');
@@ -175,7 +229,8 @@ function init([ moviesMetaData, moviesKeywords, ratings ]) {
   console.log(sliceAndDice(cfItemBasedRecommendation, MOVIES_BY_ID, 10, true));
 
   console.log('\n');
-  console.log('End ...');
+  console.log('End ...'); */
+  
 }
 
 // Utility
@@ -213,3 +268,9 @@ export function softEval(string, escape) {
     return escape;
   }
 }
+
+/* export default {
+    addUserRating,
+    sliceAndDice,
+    softEval
+} */
